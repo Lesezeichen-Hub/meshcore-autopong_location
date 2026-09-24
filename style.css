@@ -26,6 +26,11 @@ h1 { margin: 8px 0 10px; font-size: clamp(2.5rem, 12vw, 4.5rem); line-height: .8
 .icon-button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink); font-size: 1.8rem; cursor: pointer; }
 .settings { padding: 22px 20px; }
 .rules { margin-top: 14px; padding: 22px 20px; }
+.syntax { margin-top: 14px; padding: 22px 20px; }
+.syntax dl { display: grid; gap: 10px; margin: 18px 0 0; }
+.syntax dl div { display: grid; grid-template-columns: minmax(96px, 124px) 1fr; gap: 12px; }
+.syntax dt { font-weight: 700; }
+.syntax dd { margin: 0; color: var(--muted); line-height: 1.45; }
 .rule-list { display: grid; gap: 14px; margin-top: 20px; }
 .rule { border-top: 1px solid var(--line); padding-top: 14px; }
 .rule-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }

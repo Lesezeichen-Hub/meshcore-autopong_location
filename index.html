@@ -12,7 +12,7 @@
 <body>
   <main class="app-shell">
     <header class="hero">
-      <p class="eyebrow">Lesezeichen-Hub Modul <span id="moduleVersion">v1.1.0</span></p>
+      <p class="eyebrow">Lesezeichen-Hub Modul <span id="moduleVersion">v1.2.0</span></p>
       <h1>MeshCore<br>Auto-Pong</h1>
       <p>Auto-Pong, Ortsangabe und Antwortregeln direkt in der Companion-Firmware speichern.</p>
     </header>
@@ -53,6 +53,18 @@
       </div>
       <div class="rule-list" id="ruleList"></div>
       <button class="secondary-button" id="saveRulesButton" type="button" disabled>Regeln speichern</button>
+    </section>
+
+    <section class="panel syntax" aria-labelledby="syntaxTitle">
+      <p class="label" id="syntaxTitle">Syntax</p>
+      <dl>
+        <div><dt>Kanal</dt><dd><code>public</code> oder <code>#public</code>; Groß-/Kleinschreibung spielt keine Rolle.</dd></div>
+        <div><dt>Schlüsselwort</dt><dd>Wird an jeder Stelle im Nachrichtentext gesucht, ebenfalls ohne Groß-/Kleinschreibung.</dd></div>
+        <div><dt><code>{name}</code></dt><dd>Name des Absenders.</dd></div>
+        <div><dt><code>{plz}</code></dt><dd>Die oben gespeicherte Ortsangabe, zum Beispiel <code>01705</code>.</dd></div>
+        <div><dt><code>{hops}</code></dt><dd>Hop-Anzahl der eingegangenen Nachricht.</dd></div>
+      </dl>
+      <p class="helper">Beispiel: <code>Hallo {name}, Standort {plz}, Nachricht über {hops} Hops empfangen.</code></p>
     </section>
 
     <button class="primary-button" id="connectButton" type="button">Mit MeshCore verbinden</button>

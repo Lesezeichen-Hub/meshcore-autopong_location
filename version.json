@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "name": "MeshCore Auto-Pong",
-  "description": "Lokales Lesezeichen-Hub-Modul zur Bluetooth-Konfiguration von Auto-Pong, Ortsangabe und vier Auto-Reply-Regeln in MeshCore-Companion-Firmware.",
+  "description": "Lokales Lesezeichen-Hub-Modul zur Bluetooth-Konfiguration von Auto-Pong, Ortsangabe und vier Auto-Reply-Regeln mit Platzhaltern in MeshCore-Companion-Firmware.",
   "updated_at": "2026-09-24"
 }
