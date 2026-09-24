@@ -1,10 +1,10 @@
 # MeshCore Auto-Pong
 
-Kleines Lesezeichen-Hub-Modul zur Konfiguration der persistenten Firmware-Einstellungen `autopong` und `autopong_loc` per Web Bluetooth.
+Kleines Lesezeichen-Hub-Modul zur Konfiguration der persistenten Firmware-Einstellungen `autopong`, `autopong_loc` und vier Auto-Reply-Regeln per Web Bluetooth.
 
 ## Voraussetzungen
 
-- MeshCore-Companion-Firmware ab `autoreply-v1.0.5`
+- MeshCore-Companion-Firmware ab `autoreply-v1.0.7`
 - Bluetooth-Variante der Firmware (`*_companion_radio_ble`)
 - Chrome oder Edge unter Windows; das MeshCore-Geraet vorher in Windows unter **Bluetooth & Geraete** koppeln und den PIN eingeben
 - Keine andere MeshCore-App darf gleichzeitig per Bluetooth verbunden sein
@@ -24,8 +24,9 @@ Danach `http://localhost:8000` in Chrome oder Edge oeffnen.
 1. **Mit MeshCore verbinden** klicken und das gekoppelte Geraet auswaehlen.
 2. Auto-Pong aktivieren/deaktivieren.
 3. Die Ortsangabe, beispielsweise `01705`, eintragen und **Speichern** klicken.
+4. Optional bis zu vier Auto-Reply-Regeln mit Kanal, Schlüsselwort und Antworttext anlegen und **Regeln speichern** klicken.
 
-Die Seite liest und schreibt die Firmware-Custom-Variables `autopong` und `autopong_loc`. Die Werte bleiben auf dem Geraet nach Neustart und Stromverlust erhalten.
+Die Seite liest und schreibt die Firmware-Custom-Variables `autopong` und `autopong_loc` sowie die vier persistenten Auto-Reply-Slots. Alle Werte bleiben auf dem Geraet nach Neustart und Stromverlust erhalten.
 
 ## Lesezeichen-Hub
 

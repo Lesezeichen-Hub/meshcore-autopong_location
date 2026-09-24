@@ -2,8 +2,8 @@ const BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const BLE_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 const BLE_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-const CMD = { DEVICE_QUERY: 0x16, GET_CUSTOM_VARS: 0x28, SET_CUSTOM_VAR: 0x29 };
-const RESP = { OK: 0x00, ERROR: 0x01, DEVICE_INFO: 0x0d, CUSTOM_VARS: 0x15 };
+const CMD = { DEVICE_QUERY: 0x16, GET_CUSTOM_VARS: 0x28, SET_CUSTOM_VAR: 0x29, GET_AUTO_REPLY_RULE: 0x42, SET_AUTO_REPLY_RULE: 0x43 };
+const RESP = { OK: 0x00, ERROR: 0x01, DEVICE_INFO: 0x0d, CUSTOM_VARS: 0x15, AUTO_REPLY_RULE: 0x1e };
 
 const el = {
   status: document.querySelector("#status"),
@@ -12,11 +12,13 @@ const el = {
   enabled: document.querySelector("#autopongEnabled"),
   location: document.querySelector("#locationInput"),
   save: document.querySelector("#saveButton"),
+  ruleList: document.querySelector("#ruleList"),
+  saveRules: document.querySelector("#saveRulesButton"),
   hint: document.querySelector("#supportHint"),
   version: document.querySelector("#moduleVersion"),
 };
 
-const state = { device: null, server: null, rx: null, tx: null, waiters: [] };
+const state = { device: null, server: null, rx: null, tx: null, waiters: [], rules: Array.from({ length: 4 }, () => ({ channel: "", keyword: "", text: "" })) };
 
 async function loadVersion() {
   try {
@@ -36,6 +38,8 @@ function updateUi(connected = Boolean(state.rx)) {
   el.enabled.disabled = !connected;
   el.location.disabled = !connected;
   el.save.disabled = !connected;
+  el.saveRules.disabled = !connected;
+  el.ruleList.querySelectorAll("input, button").forEach((control) => { control.disabled = !connected; });
 }
 
 function waitFor(codes, timeout = 5000) {
@@ -98,6 +102,77 @@ async function setVariable(name, value) {
   await response;
 }
 
+function decodeCString(packet, start) {
+  const end = packet.indexOf(0, start);
+  return { value: new TextDecoder().decode(packet.slice(start, end < 0 ? packet.length : end)), next: end < 0 ? packet.length : end + 1 };
+}
+
+function renderRules() {
+  el.ruleList.innerHTML = state.rules.map((rule, index) => `
+    <article class="rule" data-slot="${index + 1}">
+      <div class="rule-head"><strong>Regel ${index + 1}</strong><button class="rule-delete" type="button" data-delete-slot="${index + 1}">Leeren</button></div>
+      <div class="rule-grid">
+        <label>Kanal<input data-field="channel" maxlength="31" placeholder="z. B. public" value="${escapeAttribute(rule.channel)}"></label>
+        <label>Schlüsselwort<input data-field="keyword" maxlength="31" placeholder="z. B. hallo" value="${escapeAttribute(rule.keyword)}"></label>
+        <label class="rule-text">Antworttext<input data-field="text" maxlength="95" placeholder="z. B. Ich bin gerade nicht erreichbar." value="${escapeAttribute(rule.text)}"></label>
+      </div>
+    </article>`).join("");
+  updateUi(Boolean(state.rx));
+}
+
+function escapeAttribute(value) {
+  return String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function readRulesFromForm() {
+  return [...el.ruleList.querySelectorAll(".rule")].map((row) => ({
+    channel: row.querySelector('[data-field="channel"]').value.trim().replace(/^#/, ""),
+    keyword: row.querySelector('[data-field="keyword"]').value.trim(),
+    text: row.querySelector('[data-field="text"]').value.trim(),
+  }));
+}
+
+async function getRule(slot) {
+  const response = waitFor([RESP.AUTO_REPLY_RULE]);
+  await send(Uint8Array.of(CMD.GET_AUTO_REPLY_RULE, slot));
+  const packet = await response;
+  if (packet[1] !== slot) throw new Error(`Unerwartete Antwort für Regel ${slot}.`);
+  const channel = decodeCString(packet, 2);
+  const keyword = decodeCString(packet, channel.next);
+  const text = decodeCString(packet, keyword.next);
+  return { channel: channel.value, keyword: keyword.value, text: text.value };
+}
+
+async function loadRules() {
+  const rules = [];
+  for (let slot = 1; slot <= 4; slot += 1) rules.push(await getRule(slot));
+  state.rules = rules;
+  renderRules();
+}
+
+async function setRule(slot, rule) {
+  if (!rule.channel && !rule.keyword && !rule.text) {
+    const response = waitFor([RESP.OK]);
+    await send(Uint8Array.of(CMD.SET_AUTO_REPLY_RULE, slot));
+    await response;
+    return;
+  }
+  if (!rule.channel || !rule.keyword || !rule.text) throw new Error(`Regel ${slot}: Kanal, Schlüsselwort und Antworttext müssen gesetzt sein.`);
+  const values = [rule.channel, rule.keyword, rule.text];
+  const encoded = values.map((value) => new TextEncoder().encode(value));
+  const packet = new Uint8Array(2 + encoded.reduce((length, value) => length + value.length + 1, 0));
+  packet[0] = CMD.SET_AUTO_REPLY_RULE;
+  packet[1] = slot;
+  let offset = 2;
+  for (const value of encoded) {
+    packet.set(value, offset);
+    offset += value.length + 1;
+  }
+  const response = waitFor([RESP.OK]);
+  await send(packet);
+  await response;
+}
+
 async function connect() {
   try {
     if (!window.isSecureContext) throw new Error("Web Bluetooth benoetigt localhost, 127.0.0.1 oder HTTPS.");
@@ -116,6 +191,7 @@ async function connect() {
     await send(Uint8Array.of(CMD.DEVICE_QUERY, 0x03));
     await deviceInfo;
     await readSettings();
+    await loadRules();
     updateUi(true);
     setStatus(`${device.name || "MeshCore"} verbunden`, "connected");
   } catch (error) {
@@ -152,6 +228,21 @@ async function save() {
   }
 }
 
+async function saveRules() {
+  try {
+    el.saveRules.disabled = true;
+    setStatus("Speichere Auto-Reply-Regeln ...");
+    const rules = readRulesFromForm();
+    for (let index = 0; index < rules.length; index += 1) await setRule(index + 1, rules[index]);
+    state.rules = rules;
+    setStatus("Auto-Reply-Regeln gespeichert", "connected");
+  } catch (error) {
+    setStatus(error.message || "Regeln konnten nicht gespeichert werden.", "error");
+  } finally {
+    el.saveRules.disabled = !state.rx;
+  }
+}
+
 if (!("bluetooth" in navigator)) {
   el.hint.textContent = "Dieser Browser unterstuetzt Web Bluetooth nicht. Bitte Chrome oder Edge verwenden.";
   setStatus("Web Bluetooth nicht verfuegbar", "error");
@@ -160,6 +251,14 @@ if (!("bluetooth" in navigator)) {
 el.connect.addEventListener("click", connect);
 el.disconnect.addEventListener("click", () => state.device?.gatt?.disconnect());
 el.save.addEventListener("click", save);
+el.saveRules.addEventListener("click", saveRules);
+el.ruleList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-slot]");
+  if (!button) return;
+  const row = button.closest(".rule");
+  row.querySelectorAll("input").forEach((input) => { input.value = ""; });
+});
 loadVersion();
+renderRules();
 updateUi(false);
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("service-worker.js").catch(() => {});
