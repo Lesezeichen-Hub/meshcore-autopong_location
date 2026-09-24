@@ -1,0 +1,18 @@
+{
+  "name": "MeshCore Auto-Pong",
+  "short_name": "Auto-Pong",
+  "description": "Auto-Pong und Ortsangabe per Bluetooth in der MeshCore-Firmware konfigurieren.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edf0e9",
+  "theme_color": "#143d37",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

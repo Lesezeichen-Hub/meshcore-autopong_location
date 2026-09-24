@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143d37">
+  <meta name="description" content="MeshCore Auto-Pong direkt per Bluetooth konfigurieren.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>MeshCore Auto-Pong</title>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">Lesezeichen-Hub Modul <span id="moduleVersion">v1.0.0</span></p>
+      <h1>MeshCore<br>Auto-Pong</h1>
+      <p>Aktivierung und Ortsangabe direkt in der Companion-Firmware speichern.</p>
+    </header>
+
+    <section class="panel connection" aria-labelledby="connectionTitle">
+      <div>
+        <p class="label" id="connectionTitle">Bluetooth</p>
+        <p class="status" id="status" aria-live="polite">Nicht verbunden</p>
+      </div>
+      <button class="icon-button" id="disconnectButton" type="button" aria-label="Verbindung trennen" title="Verbindung trennen" disabled>×</button>
+    </section>
+
+    <section class="panel settings" aria-labelledby="settingsTitle">
+      <div class="settings-heading">
+        <div>
+          <p class="label" id="settingsTitle">Auto-Pong</p>
+          <p class="helper">Antwortet auf <code>ping</code> im Kanal <code>#ping</code>.</p>
+        </div>
+        <label class="toggle" title="Auto-Pong ein- oder ausschalten">
+          <input id="autopongEnabled" type="checkbox" disabled>
+          <span aria-hidden="true"></span>
+          <span class="sr-only">Auto-Pong aktivieren</span>
+        </label>
+      </div>
+
+      <label class="field-label" for="locationInput">Ortsangabe</label>
+      <div class="input-row">
+        <input id="locationInput" type="text" maxlength="23" placeholder="z. B. 01705" autocomplete="postal-code" disabled>
+        <button id="saveButton" type="button" disabled>Speichern</button>
+      </div>
+      <p class="helper">Leer lassen, um die Ortsangabe zu entfernen. Der Wert wird im Geraet gespeichert.</p>
+    </section>
+
+    <button class="primary-button" id="connectButton" type="button">Mit MeshCore verbinden</button>
+    <p class="support" id="supportHint">Chrome oder Edge auf localhost/HTTPS verwenden. Andere MeshCore-Apps vor dem Verbinden trennen.</p>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
