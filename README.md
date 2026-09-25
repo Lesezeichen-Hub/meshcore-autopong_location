@@ -11,6 +11,10 @@ Kleines Lesezeichen-Hub-Modul zur Konfiguration der persistenten Firmware-Einste
 
 ## Start
 
+Die veröffentlichte WebApp ist unter
+[lesezeichen-hub.github.io/meshcore-autopong_location](https://lesezeichen-hub.github.io/meshcore-autopong_location/)
+verfügbar.
+
 Im Lesezeichen-Hub unter **Module** ein lokales Modul anlegen und diesen Ordner auswaehlen. Alternativ in diesem Ordner ausfuehren:
 
 ```powershell
