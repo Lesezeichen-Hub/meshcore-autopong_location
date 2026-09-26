@@ -1,4 +1,4 @@
-const CACHE_NAME = "meshcore-autopong-location-v1.2.0";
+const CACHE_NAME = "meshcore-autopong-location-v1.3.0";
 const APP_SHELL = ["./", "./index.html", "./style.css", "./app.js", "./manifest.webmanifest", "./icon.svg", "./version.json"];
 
 self.addEventListener("install", (event) => {

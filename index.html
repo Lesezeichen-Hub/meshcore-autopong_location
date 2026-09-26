@@ -12,7 +12,7 @@
 <body>
   <main class="app-shell">
     <header class="hero">
-      <p class="eyebrow">Lesezeichen-Hub Modul <span id="moduleVersion">v1.2.0</span></p>
+      <p class="eyebrow">Lesezeichen-Hub Modul <span id="moduleVersion">v1.3.0</span></p>
       <h1>MeshCore<br>Auto-Pong</h1>
       <p>Auto-Pong, Ortsangabe und Antwortregeln direkt in der Companion-Firmware speichern.</p>
     </header>
@@ -23,6 +23,21 @@
         <p class="status" id="status" aria-live="polite">Nicht verbunden</p>
       </div>
       <button class="icon-button" id="disconnectButton" type="button" aria-label="Verbindung trennen" title="Verbindung trennen" disabled>×</button>
+    </section>
+
+    <section id="repeaterPanel" class="panel repeater" data-state="unknown" aria-labelledby="repeaterTitle" aria-live="polite">
+      <div class="repeater-heading">
+        <div>
+          <p class="label" id="repeaterTitle">Repeater</p>
+          <p class="repeater-state"><span class="status-dot" aria-hidden="true"></span><strong id="repeaterState">Nicht verbunden</strong></p>
+        </div>
+        <span id="repeaterBadge" class="status-badge">Status</span>
+      </div>
+      <dl class="repeater-details">
+        <div><dt>Funkprofil</dt><dd id="radioProfile">–</dd></div>
+        <div><dt>Freigegeben</dt><dd id="allowedRepeatFrequencies">–</dd></div>
+      </dl>
+      <p id="repeaterHint" class="helper">Nach dem Verbinden wird der Status direkt aus der Companion-Firmware gelesen.</p>
     </section>
 
     <section class="panel settings" aria-labelledby="settingsTitle">
@@ -38,12 +53,15 @@
         </label>
       </div>
 
-      <label class="field-label" for="locationInput">Ortsangabe</label>
-      <div class="input-row">
-        <input id="locationInput" type="text" maxlength="23" placeholder="z. B. 01705" autocomplete="postal-code" disabled>
-        <button id="saveButton" type="button" disabled>Speichern</button>
-      </div>
-      <p class="helper">Leer lassen, um die Ortsangabe zu entfernen. Der Wert wird im Geraet gespeichert.</p>
+      <label class="form-field" for="locationInput">
+        <span class="field-label">Ortsangabe</span>
+        <span class="input-row">
+          <input id="locationInput" type="text" maxlength="23" placeholder="z. B. 01705 oder Dresden" autocomplete="postal-code" aria-describedby="locationHint locationCounter" disabled>
+          <button id="saveButton" type="button" disabled>Speichern</button>
+        </span>
+        <span class="field-meta"><span id="locationHint">Leer lassen, um die Ortsangabe zu entfernen.</span><span id="locationCounter">0 / 23</span></span>
+      </label>
+      <p class="helper">Der Wert wird dauerhaft im Gerät gespeichert und in Antworten eingesetzt.</p>
     </section>
 
     <section class="panel rules" aria-labelledby="rulesTitle">

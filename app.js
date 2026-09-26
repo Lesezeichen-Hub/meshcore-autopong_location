@@ -2,8 +2,24 @@ const BLE_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
 const BLE_RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 const BLE_TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-const CMD = { DEVICE_QUERY: 0x16, GET_CUSTOM_VARS: 0x28, SET_CUSTOM_VAR: 0x29, GET_AUTO_REPLY_RULE: 0x42, SET_AUTO_REPLY_RULE: 0x43 };
-const RESP = { OK: 0x00, ERROR: 0x01, DEVICE_INFO: 0x0d, CUSTOM_VARS: 0x15, AUTO_REPLY_RULE: 0x1e };
+const CMD = {
+  APP_START: 0x01,
+  DEVICE_QUERY: 0x16,
+  GET_CUSTOM_VARS: 0x28,
+  SET_CUSTOM_VAR: 0x29,
+  GET_ALLOWED_REPEAT_FREQ: 0x3c,
+  GET_AUTO_REPLY_RULE: 0x42,
+  SET_AUTO_REPLY_RULE: 0x43,
+};
+const RESP = {
+  OK: 0x00,
+  ERROR: 0x01,
+  SELF_INFO: 0x05,
+  DEVICE_INFO: 0x0d,
+  CUSTOM_VARS: 0x15,
+  ALLOWED_REPEAT_FREQ: 0x1a,
+  AUTO_REPLY_RULE: 0x1e,
+};
 
 const el = {
   status: document.querySelector("#status"),
@@ -16,9 +32,27 @@ const el = {
   saveRules: document.querySelector("#saveRulesButton"),
   hint: document.querySelector("#supportHint"),
   version: document.querySelector("#moduleVersion"),
+  locationCounter: document.querySelector("#locationCounter"),
+  repeaterPanel: document.querySelector("#repeaterPanel"),
+  repeaterState: document.querySelector("#repeaterState"),
+  repeaterBadge: document.querySelector("#repeaterBadge"),
+  repeaterHint: document.querySelector("#repeaterHint"),
+  radioProfile: document.querySelector("#radioProfile"),
+  allowedRepeatFrequencies: document.querySelector("#allowedRepeatFrequencies"),
 };
 
-const state = { device: null, server: null, rx: null, tx: null, waiters: [], rules: Array.from({ length: 4 }, () => ({ channel: "", keyword: "", text: "" })) };
+const state = {
+  device: null,
+  server: null,
+  rx: null,
+  tx: null,
+  waiters: [],
+  repeatEnabled: null,
+  repeatSupported: null,
+  currentRadio: null,
+  allowedRepeatRanges: [],
+  rules: Array.from({ length: 4 }, () => ({ channel: "", keyword: "", text: "" })),
+};
 
 async function loadVersion() {
   try {
@@ -77,6 +111,117 @@ function encodeCommand(command, value = "") {
   return packet;
 }
 
+function buildAppStart() {
+  const name = new TextEncoder().encode("Auto-Pong Location");
+  const packet = new Uint8Array(8 + name.length);
+  packet[0] = CMD.APP_START;
+  packet[1] = 0x01;
+  packet.set(name, 8);
+  return packet;
+}
+
+function readU32(packet, offset) {
+  if (offset + 3 >= packet.length) return null;
+  return (packet[offset] | (packet[offset + 1] << 8) | (packet[offset + 2] << 16) | (packet[offset + 3] << 24)) >>> 0;
+}
+
+function parseDeviceInfo(packet) {
+  state.repeatEnabled = packet.length > 80 ? packet[80] !== 0 : null;
+  renderRepeaterStatus();
+}
+
+function parseSelfInfo(packet) {
+  const freq = readU32(packet, 48);
+  const bw = readU32(packet, 52);
+  const sf = packet[56];
+  const cr = packet[57];
+  state.currentRadio = freq ? { freq, bw, sf, cr } : null;
+  renderRepeaterStatus();
+}
+
+function parseAllowedRepeatFrequencies(packet) {
+  const ranges = [];
+  for (let offset = 1; offset + 7 < packet.length; offset += 8) {
+    const lower = readU32(packet, offset);
+    const upper = readU32(packet, offset + 4);
+    if (lower != null && upper != null) ranges.push({ lower, upper });
+  }
+  state.allowedRepeatRanges = ranges;
+  state.repeatSupported = true;
+  renderRepeaterStatus();
+}
+
+function formatFrequency(khz) {
+  return `${(khz / 1000).toLocaleString("de-DE", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} MHz`;
+}
+
+function formatAllowedRanges() {
+  return state.allowedRepeatRanges.map(({ lower, upper }) => lower === upper
+    ? formatFrequency(lower)
+    : `${formatFrequency(lower)}–${formatFrequency(upper)}`
+  ).join(", ");
+}
+
+function renderRepeaterStatus() {
+  const connected = Boolean(state.rx);
+  const currentFrequency = state.currentRadio?.freq;
+  const currentAllowed = currentFrequency == null || !state.allowedRepeatRanges.length
+    || state.allowedRepeatRanges.some(({ lower, upper }) => currentFrequency >= lower && currentFrequency <= upper);
+  let status = "unknown";
+  let label = connected ? "Wird gelesen …" : "Nicht verbunden";
+  let badge = "Status";
+  let hint = connected ? "Repeater-Status wird aus der Firmware gelesen." : "Nach dem Verbinden wird der Status direkt aus der Companion-Firmware gelesen.";
+
+  if (connected && state.repeatEnabled === true) {
+    status = currentAllowed ? "active" : "misconfigured";
+    label = currentAllowed ? "Aktiv" : "Aktiv, Profil prüfen";
+    badge = currentAllowed ? "Ein" : "Warnung";
+    hint = currentAllowed
+      ? "Der Companion leitet geeignete Mesh-Pakete weiter."
+      : `Die aktuelle Frequenz ${formatFrequency(currentFrequency)} liegt nicht im freigegebenen Bereich.`;
+  } else if (connected && state.repeatEnabled === false) {
+    status = "inactive";
+    label = "Aus";
+    badge = "Bereit";
+    hint = "Der Repeater kann in der MeshCore-App zugeschaltet werden.";
+  } else if (connected && state.repeatSupported === false) {
+    status = "unsupported";
+    label = "Nicht verfügbar";
+    badge = "Firmware";
+    hint = "Diese Firmware meldet keine erlaubten Repeater-Frequenzen.";
+  }
+
+  el.repeaterPanel.dataset.state = status;
+  el.repeaterState.textContent = label;
+  el.repeaterBadge.textContent = badge;
+  el.repeaterHint.textContent = hint;
+  el.radioProfile.textContent = state.currentRadio
+    ? `${formatFrequency(state.currentRadio.freq)}, BW ${(state.currentRadio.bw / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} kHz, SF${state.currentRadio.sf}, CR${state.currentRadio.cr}`
+    : "–";
+  el.allowedRepeatFrequencies.textContent = state.allowedRepeatRanges.length ? formatAllowedRanges() : "–";
+}
+
+async function readRepeaterStatus() {
+  try {
+    const selfInfo = waitFor([RESP.SELF_INFO]);
+    await send(buildAppStart());
+    parseSelfInfo(await selfInfo);
+  } catch {
+    state.repeatSupported = false;
+    renderRepeaterStatus();
+    return;
+  }
+
+  try {
+    const allowed = waitFor([RESP.ALLOWED_REPEAT_FREQ]);
+    await send(Uint8Array.of(CMD.GET_ALLOWED_REPEAT_FREQ));
+    parseAllowedRepeatFrequencies(await allowed);
+  } catch {
+    state.repeatSupported = false;
+    renderRepeaterStatus();
+  }
+}
+
 function parseVariables(packet) {
   const text = new TextDecoder().decode(packet.slice(1)).replace(/\0+$/g, "");
   return Object.fromEntries(text.split(",").filter(Boolean).map((entry) => {
@@ -94,6 +239,7 @@ async function readSettings() {
   }
   el.enabled.checked = variables.autopong === "1";
   el.location.value = variables.autopong_loc;
+  updateLocationCounter();
 }
 
 async function setVariable(name, value) {
@@ -112,12 +258,21 @@ function renderRules() {
     <article class="rule" data-slot="${index + 1}">
       <div class="rule-head"><strong>Regel ${index + 1}</strong><button class="rule-delete" type="button" data-delete-slot="${index + 1}">Leeren</button></div>
       <div class="rule-grid">
-        <label>Kanal<input data-field="channel" maxlength="31" placeholder="z. B. public" value="${escapeAttribute(rule.channel)}"></label>
-        <label>Schlüsselwort<input data-field="keyword" maxlength="31" placeholder="z. B. hallo" value="${escapeAttribute(rule.keyword)}"></label>
-        <label class="rule-text">Antworttext<input data-field="text" maxlength="95" placeholder="z. B. Ich bin gerade nicht erreichbar." value="${escapeAttribute(rule.text)}"></label>
+        <label class="form-field"><span class="field-label">Kanal</span><input data-field="channel" maxlength="31" placeholder="z. B. public" autocomplete="off" value="${escapeAttribute(rule.channel)}"><span class="field-meta"><span>Ohne führendes # möglich</span><span data-counter>${rule.channel.length} / 31</span></span></label>
+        <label class="form-field"><span class="field-label">Schlüsselwort</span><input data-field="keyword" maxlength="31" placeholder="z. B. hallo" autocomplete="off" value="${escapeAttribute(rule.keyword)}"><span class="field-meta"><span>Groß-/Kleinschreibung egal</span><span data-counter>${rule.keyword.length} / 31</span></span></label>
+        <label class="form-field rule-text"><span class="field-label">Antworttext</span><input data-field="text" maxlength="95" placeholder="z. B. Hallo {name}, Standort {plz}." autocomplete="off" value="${escapeAttribute(rule.text)}"><span class="field-meta"><span>Platzhalter sind erlaubt</span><span data-counter>${rule.text.length} / 95</span></span></label>
       </div>
     </article>`).join("");
   updateUi(Boolean(state.rx));
+}
+
+function updateLocationCounter() {
+  el.locationCounter.textContent = `${el.location.value.length} / ${el.location.maxLength}`;
+}
+
+function updateRuleCounter(input) {
+  const counter = input.closest(".form-field")?.querySelector("[data-counter]");
+  if (counter) counter.textContent = `${input.value.length} / ${input.maxLength}`;
 }
 
 function escapeAttribute(value) {
@@ -130,6 +285,25 @@ function readRulesFromForm() {
     keyword: row.querySelector('[data-field="keyword"]').value.trim(),
     text: row.querySelector('[data-field="text"]').value.trim(),
   }));
+}
+
+function validateRuleForm(rules) {
+  let firstMissing = null;
+  [...el.ruleList.querySelectorAll(".rule")].forEach((row, index) => {
+    const inputs = [...row.querySelectorAll("input[data-field]")];
+    const values = Object.values(rules[index]);
+    const incomplete = values.some(Boolean) && !values.every(Boolean);
+    inputs.forEach((input) => {
+      const missing = incomplete && !input.value.trim();
+      input.toggleAttribute("aria-invalid", missing);
+      input.setCustomValidity(missing ? "Bitte alle drei Felder dieser Regel ausfüllen." : "");
+      if (missing && !firstMissing) firstMissing = input;
+    });
+  });
+  if (!firstMissing) return true;
+  firstMissing.reportValidity();
+  firstMissing.focus();
+  return false;
 }
 
 async function getRule(slot) {
@@ -189,7 +363,8 @@ async function connect() {
 
     const deviceInfo = waitFor([RESP.DEVICE_INFO]);
     await send(Uint8Array.of(CMD.DEVICE_QUERY, 0x03));
-    await deviceInfo;
+    parseDeviceInfo(await deviceInfo);
+    await readRepeaterStatus();
     await readSettings();
     await loadRules();
     updateUi(true);
@@ -210,6 +385,11 @@ function disconnected() {
   state.server = null;
   state.rx = null;
   state.tx = null;
+  state.repeatEnabled = null;
+  state.repeatSupported = null;
+  state.currentRadio = null;
+  state.allowedRepeatRanges = [];
+  renderRepeaterStatus();
   updateUi(false);
   setStatus("Nicht verbunden");
 }
@@ -233,6 +413,10 @@ async function saveRules() {
     el.saveRules.disabled = true;
     setStatus("Speichere Auto-Reply-Regeln ...");
     const rules = readRulesFromForm();
+    if (!validateRuleForm(rules)) {
+      setStatus("Unvollständige Regel: Bitte Kanal, Schlüsselwort und Antworttext ausfüllen.", "error");
+      return;
+    }
     for (let index = 0; index < rules.length; index += 1) await setRule(index + 1, rules[index]);
     state.rules = rules;
     setStatus("Auto-Reply-Regeln gespeichert", "connected");
@@ -252,13 +436,26 @@ el.connect.addEventListener("click", connect);
 el.disconnect.addEventListener("click", () => state.device?.gatt?.disconnect());
 el.save.addEventListener("click", save);
 el.saveRules.addEventListener("click", saveRules);
+el.location.addEventListener("input", updateLocationCounter);
+el.ruleList.addEventListener("input", (event) => {
+  if (event.target.matches("input[data-field]")) {
+    event.target.removeAttribute("aria-invalid");
+    event.target.setCustomValidity("");
+    updateRuleCounter(event.target);
+  }
+});
 el.ruleList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-delete-slot]");
   if (!button) return;
   const row = button.closest(".rule");
-  row.querySelectorAll("input").forEach((input) => { input.value = ""; });
+  row.querySelectorAll("input").forEach((input) => {
+    input.value = "";
+    updateRuleCounter(input);
+  });
 });
 loadVersion();
 renderRules();
 updateUi(false);
+updateLocationCounter();
+renderRepeaterStatus();
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("service-worker.js").catch(() => {});
